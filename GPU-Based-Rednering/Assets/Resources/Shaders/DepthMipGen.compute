@@ -1,0 +1,58 @@
+#pragma kernel CSMain
+
+Texture2D<float> _SourceDepthTexture;
+RWTexture2D<float> _DestDepthTexture;
+uint _SourceMipLevel;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // Get destination texture dimensions
+    uint destWidth, destHeight;
+    _DestDepthTexture.GetDimensions(destWidth, destHeight);
+    
+    // Early exit if thread is outside destination bounds
+    if (id.x >= destWidth || id.y >= destHeight)
+        return;
+    
+    // Get source mip dimensions
+    uint sourceWidth, sourceHeight, numberOfLevels;
+    _SourceDepthTexture.GetDimensions(_SourceMipLevel, sourceWidth, sourceHeight, numberOfLevels);
+    
+    // Calculate base source coordinate (standard 2x downsampling)
+    uint2 baseCoord = id.xy * 2;
+    
+    // Determine if this is an edge pixel that needs to handle odd dimensions
+    bool isEdgeX = (id.x == destWidth - 1) && (sourceWidth & 1);  // Fast odd check
+    bool isEdgeY = (id.y == destHeight - 1) && (sourceHeight & 1);
+    
+    // Sample bounds (2x2 normally, up to 3x3 for odd-dimensioned edges)
+    uint maxX = isEdgeX ? 3 : 2;
+    uint maxY = isEdgeY ? 3 : 2;
+    
+    // Conservative depth reduction: take minimum (furthest in reversed-Z)
+    float minDepth = 1.0;  // Near plane (no geometry)
+    
+    [unroll]
+    for (uint y = 0; y < 3; y++)
+    {
+        [unroll]
+        for (uint x = 0; x < 3; x++)
+        {
+            // Skip samples outside our sampling region
+            if (x >= maxX || y >= maxY)
+                continue;
+                
+            uint2 sampleCoord = baseCoord + uint2(x, y);
+            
+            // Bounds check against source texture
+            if (sampleCoord.x < sourceWidth && sampleCoord.y < sourceHeight)
+            {
+                float depth = _SourceDepthTexture.mips[_SourceMipLevel][sampleCoord];
+                minDepth = min(minDepth, depth);
+            }
+        }
+    }
+    
+    _DestDepthTexture[id.xy] = minDepth;
+}

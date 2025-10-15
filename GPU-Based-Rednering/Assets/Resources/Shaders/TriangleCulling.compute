@@ -1,0 +1,268 @@
+#pragma kernel CSMain
+
+struct Cell
+{
+    float3 min;
+    float3 max;
+    uint firstTriangleIndex;
+    uint count;
+};
+
+StructuredBuffer<Cell> _CellBuffer;
+StructuredBuffer<uint> _TriangleRenderingMode;
+StructuredBuffer<uint> _TriangleIndexBuffer;
+AppendStructuredBuffer<uint> _OpaqueVisibleTrianglesBuffer;
+AppendStructuredBuffer<uint> _TransparentVisibleTrianglesBuffer;
+
+// Hi-Z occlusion culling resources
+Texture2D<float> _OcclusionDepthTexture;
+SamplerState sampler_OcclusionDepthTexture;
+
+float4 _FrustumPlanes[6];
+float4x4 _ViewProjMatrix;
+float3 _CameraPosition;
+float4 _ScreenParams; // x=width, y=height, z=maxMipLevel, w=unused
+
+bool AABBIntersectsFrustum(float3 minBounds, float3 maxBounds)
+{
+    for (int i = 0; i < 6; i++)
+    {
+        float3 normal = _FrustumPlanes[i].xyz;
+        float d = _FrustumPlanes[i].w;
+
+        // Get the most positive vertex in the direction of the plane normal
+        float3 positive = float3(
+            normal.x >= 0 ? maxBounds.x : minBounds.x,
+            normal.y >= 0 ? maxBounds.y : minBounds.y,
+            normal.z >= 0 ? maxBounds.z : minBounds.z
+        );
+
+        // If the most positive vertex is outside the plane, the AABB is fully outside
+        if (dot(normal, positive) + d < 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Find the closest point on an AABB to the camera (not necessarily a corner)
+float3 GetClosestPointOnAABB(float3 cellMin, float3 cellMax, float3 cameraPos)
+{
+    return float3(
+        clamp(cameraPos.x, cellMin.x, cellMax.x),
+        clamp(cameraPos.y, cellMin.y, cellMax.y),
+        clamp(cameraPos.z, cellMin.z, cellMax.z)
+    );
+}
+
+// Transform a single world position to screen space
+float3 WorldToScreen(float3 worldPos, float4x4 viewProjMatrix, float2 screenSize)
+{
+    float4 clipPos = mul(viewProjMatrix, float4(worldPos, 1.0));
+    
+    // Check if behind camera
+    if (clipPos.w <= 0.0)
+        return float3(-1, -1, -1); // Invalid
+    
+    // Perspective divide
+    float3 ndc = clipPos.xyz / clipPos.w;
+    
+    // Convert to screen coordinates
+    float2 screenPos = float2(
+        (ndc.x * 0.5 + 0.5) * screenSize.x,
+        (ndc.y * 0.5 + 0.5) * screenSize.y
+    );
+    
+    return float3(screenPos, ndc.z);
+}
+
+
+
+struct CellScreenFootprint
+{
+    float2 minScreen;
+    float2 maxScreen;
+    float minDepth;
+    float2 footprintSize;
+    bool isValid;
+};
+
+// Calculate optimal mip level using CellScreenFootprint
+uint CalculateOptimalMipLevelFromFootprint(CellScreenFootprint footprint, uint maxMipLevel, uint2 sampleCount)
+{
+    uint2 footprintSizeUint = (uint2)footprint.footprintSize;
+    uint maxDimension = max(footprintSizeUint.x, footprintSizeUint.y);
+    
+    // For very small footprints, use base mip for accuracy
+    if (maxDimension <= sampleCount.x)
+        return 0;
+    
+    // Each sample covers (footprint / sampleCount) area
+    // Mip level should match this: 1 texel = 1 sample coverage
+    float sampleCoverage = (float)maxDimension / (float)sampleCount.x;
+    float mipLevelFloat = log2(sampleCoverage);
+    
+    return clamp((uint)round(mipLevelFloat), 0u, maxMipLevel);
+}
+
+// Generate screen-space footprint data from a cell
+CellScreenFootprint GetCellScreenFootprint(float3 cellMin, float3 cellMax, float4x4 viewProjMatrix, float2 screenSize)
+{
+    CellScreenFootprint footprint;
+    
+    // Transform all 8 corners of the AABB to screen space
+    float3 corners[8] = {
+        float3(cellMin.x, cellMin.y, cellMin.z),
+        float3(cellMax.x, cellMin.y, cellMin.z),
+        float3(cellMin.x, cellMax.y, cellMin.z),
+        float3(cellMax.x, cellMax.y, cellMin.z),
+        float3(cellMin.x, cellMin.y, cellMax.z),
+        float3(cellMax.x, cellMin.y, cellMax.z),
+        float3(cellMin.x, cellMax.y, cellMax.z),
+        float3(cellMax.x, cellMax.y, cellMax.z)
+    };
+    
+    footprint.minScreen = float2(10000, 10000);
+    footprint.maxScreen = float2(-10000, -10000);
+    footprint.minDepth = 0.0f;
+
+    int validCorners = 0;
+    
+    [unroll(8)]
+    for (int i = 0; i < 8; i++)
+    {
+        float3 screenPos = WorldToScreen(corners[i], viewProjMatrix, screenSize);
+        
+        if (screenPos.z < 0)
+            continue;
+
+        float reversedZ = 1.0f - screenPos.z;    
+        validCorners++;
+        
+        footprint.minScreen = min(footprint.minScreen, screenPos.xy);
+        footprint.maxScreen = max(footprint.maxScreen, screenPos.xy);
+        footprint.minDepth =max(footprint.minDepth,reversedZ);
+    }
+    
+    // If no valid corners, the cell is likely behind the camera
+    if (validCorners == 0)
+    {
+        footprint.isValid = false;
+        return footprint;
+    }
+    
+    // Clamp to screen bounds
+    footprint.minScreen = max(footprint.minScreen, float2(0, 0));
+    footprint.maxScreen = min(footprint.maxScreen, screenSize);
+    
+    // Check if the footprint has valid dimensions
+    footprint.isValid =true;// (footprint.maxScreen.x > footprint.minScreen.x && footprint.maxScreen.y > footprint.minScreen.y);
+    footprint.footprintSize = footprint.maxScreen - footprint.minScreen;
+
+    return footprint;
+}
+
+// Improved Hi-Z occlusion test with comprehensive sampling using CellScreenFootprint
+bool IsOccludedHiZ(float3 cellMin, float3 cellMax, float4x4 viewProjMatrix, float2 screenSize, uint maxMipLevel)
+{
+    // Get the screen-space footprint
+    CellScreenFootprint footprint = GetCellScreenFootprint(cellMin, cellMax, viewProjMatrix, screenSize);
+    
+    // If footprint is invalid, assume visible
+    if (!footprint.isValid)
+        return false;
+    
+    uint2 sampleCount = uint2(4, 4);
+    uint mipLevel = CalculateOptimalMipLevelFromFootprint(footprint, maxMipLevel, sampleCount);
+
+    float depthBias = 0.001f * (1.0f + mipLevel * 0.5f);
+
+    // Sample the depth buffer in a grid pattern
+    for (uint y = 0; y < sampleCount.y; y++)
+    {
+        for (uint x = 0; x < sampleCount.x; x++)
+        {
+            // Calculate sample position
+            float2 samplePos = footprint.minScreen + 
+                ((float2(x, y) + 0.5) / sampleCount) * footprint.footprintSize;
+                
+            // Convert to UV coordinates
+            float2 uv = samplePos / screenSize;
+            uv = clamp(uv, 0.0, 1.0);
+
+            float sampledDepth = _OcclusionDepthTexture.SampleLevel(sampler_OcclusionDepthTexture, uv, mipLevel).r;
+            
+            if (footprint.minDepth >= sampledDepth + depthBias)
+            {
+                return false; // Visible (closer to camera than occluder)
+            }
+        }
+    }
+       
+    return true; // All samples occluded, cell is occluded
+}
+
+bool IsCellOccluded(float3 minBounds, float3 maxBounds)
+{
+    // Add size-based culling bypass for very large objects
+    float3 cellSize = maxBounds - minBounds;
+    float maxDimension = max(max(cellSize.x, cellSize.y), cellSize.z);
+    uint maxMipLevel = (uint)_ScreenParams.z;
+    float2 screenSize = _ScreenParams.xy;
+    
+    return IsOccludedHiZ(minBounds, maxBounds, _ViewProjMatrix, screenSize, maxMipLevel);
+}
+
+bool IsFrontFacing(float3 v0, float3 v1, float3 v2, float3 cameraPos)
+{
+    float3 e1 = v1 - v0;
+    float3 e2 = v2 - v0;
+    float3 normal = normalize(cross(e1, e2));
+    float3 viewDir = normalize(cameraPos - v0);
+    return dot(normal, viewDir) > 0;
+}
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint cellIndex = id.x;
+    uint cellCount;
+    uint stride;
+    _CellBuffer.GetDimensions(cellCount, stride);
+
+    if (cellIndex >= cellCount)
+    {
+        return;
+    }
+    
+    Cell cell = _CellBuffer[cellIndex];
+    
+    // First, test if the cell's bounding box is visible in the frustum
+    if (!AABBIntersectsFrustum(cell.min, cell.max))
+    {
+      return; // Skip all triangles in this cell
+    }
+    
+    // Check occlusion with improved algorithm
+    if (IsCellOccluded(cell.min, cell.max))
+    {
+        return; // Skip occluded cells
+    }
+    
+    // If cell passes tests, process all triangles in this cell
+    for (uint i = 0; i < cell.count; i++)
+    {
+        uint triangleIndex = _TriangleIndexBuffer[cell.firstTriangleIndex + i];
+        uint renderingMode = _TriangleRenderingMode[triangleIndex];
+        
+        if (renderingMode == 0)
+        {
+            _OpaqueVisibleTrianglesBuffer.Append(triangleIndex);
+        }
+        else
+        {
+            _TransparentVisibleTrianglesBuffer.Append(triangleIndex);
+        }
+    }
+}

@@ -1,0 +1,39 @@
+#pragma kernel CSMain
+
+Texture2D<float> _SourceDepthTexture;
+RWTexture2D<float> _DestDepthTexture;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint2 coord = id.xy;
+    
+    // Get texture dimensions
+    uint width, height;
+    _DestDepthTexture.GetDimensions(width, height);
+    
+    // Check bounds
+    if (coord.x >= width || coord.y >= height)
+        return;
+    
+    // Copy depth value from source to destination
+    float depth = _SourceDepthTexture[coord];    
+    
+    if (depth == 0.0)
+    {
+        // Sample all 4 neighbors with clamped coordinates
+        uint2 leftCoord = uint2(max(0, (int) coord.x - 1), coord.y);
+        uint2 rightCoord = uint2(min(width - 1, coord.x + 1), coord.y);
+        uint2 topCoord = uint2(coord.x, max(0, (int) coord.y - 1));
+        uint2 bottomCoord = uint2(coord.x, min(height - 1, coord.y + 1));
+        
+        float leftDepth = _SourceDepthTexture[leftCoord];
+        float rightDepth = _SourceDepthTexture[rightCoord];
+        float topDepth = _SourceDepthTexture[topCoord];
+        float bottomDepth = _SourceDepthTexture[bottomCoord];
+        
+        depth = max(max(leftDepth, rightDepth), max(topDepth, bottomDepth));
+    }
+
+    _DestDepthTexture[coord] = depth;
+} 
