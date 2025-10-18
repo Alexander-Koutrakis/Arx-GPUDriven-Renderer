@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering;
-using static Rendering.CustomRendererFeature;
+using static Rendering.GPURendererFeature;
 
 namespace Rendering
 {

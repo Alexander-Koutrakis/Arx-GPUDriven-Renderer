@@ -23,7 +23,7 @@ float4x4 _ViewProjMatrix;
 float3 _CameraPosition;
 float4 _ScreenParams; // x=width, y=height, z=maxMipLevel, w=unused
 
-bool AABBIntersectsFrustum(float3 minBounds, float3 maxBounds)
+bool IsCellFrustumCulled(float3 minBounds, float3 maxBounds)
 {
     for (int i = 0; i < 6; i++)
     {
@@ -40,21 +40,12 @@ bool AABBIntersectsFrustum(float3 minBounds, float3 maxBounds)
         // If the most positive vertex is outside the plane, the AABB is fully outside
         if (dot(normal, positive) + d < 0)
         {
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
-// Find the closest point on an AABB to the camera (not necessarily a corner)
-float3 GetClosestPointOnAABB(float3 cellMin, float3 cellMax, float3 cameraPos)
-{
-    return float3(
-        clamp(cameraPos.x, cellMin.x, cellMax.x),
-        clamp(cameraPos.y, cellMin.y, cellMax.y),
-        clamp(cameraPos.z, cellMin.z, cellMax.z)
-    );
-}
 
 // Transform a single world position to screen space
 float3 WorldToScreen(float3 worldPos, float4x4 viewProjMatrix, float2 screenSize)
@@ -200,10 +191,10 @@ bool IsOccludedHiZ(float3 cellMin, float3 cellMax, float4x4 viewProjMatrix, floa
         }
     }
        
-    return true; // All samples occluded, cell is occluded
+    return true;
 }
 
-bool IsCellOccluded(float3 minBounds, float3 maxBounds)
+bool IsCellOcclusionCulled(float3 minBounds, float3 maxBounds)
 {
     // Add size-based culling bypass for very large objects
     float3 cellSize = maxBounds - minBounds;
@@ -238,16 +229,14 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     
     Cell cell = _CellBuffer[cellIndex];
     
-    // First, test if the cell's bounding box is visible in the frustum
-    if (!AABBIntersectsFrustum(cell.min, cell.max))
+    if (IsCellFrustumCulled(cell.min, cell.max))
     {
-      return; // Skip all triangles in this cell
+        return;
     }
     
-    // Check occlusion with improved algorithm
-    if (IsCellOccluded(cell.min, cell.max))
+    if (IsCellOcclusionCulled(cell.min, cell.max))
     {
-        return; // Skip occluded cells
+        return;
     }
     
     // If cell passes tests, process all triangles in this cell

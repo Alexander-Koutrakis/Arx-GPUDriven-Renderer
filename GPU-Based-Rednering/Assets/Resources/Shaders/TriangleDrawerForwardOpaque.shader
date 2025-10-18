@@ -160,18 +160,15 @@ Shader "Custom/TriangleDrawerForwardOpaque"
         {
             MaterialData material = _MaterialBuffer[input.materialIndex];
     
-            // Sample albedo
             float4 albedoAlpha = SampleTextureArray(material.albedo.arrayIndex, input.uv, material.albedo.textureIndex);
             float3 albedo = albedoAlpha.rgb * material.color.rgb;
             float alpha = albedoAlpha.a * material.color.a;
     
-            // Alpha clipping
             if(material.alphaClip == 1)
             {
                 clip(alpha - material.alphaThreshold);
             }
 
-            // Normal calculation
             float3 normalWS = normalize(input.normalWS);         
             if(material.normal.arrayIndex != -1)
             {
@@ -187,7 +184,7 @@ Shader "Custom/TriangleDrawerForwardOpaque"
                 normalWS = normalize(mul(normalTS, tangentToWorld));
             }
 
-            // Build SurfaceData
+
             SurfaceData surfaceData = (SurfaceData)0;
             surfaceData.albedo = albedo;
             surfaceData.metallic = saturate(material.metallic);
@@ -210,6 +207,13 @@ Shader "Custom/TriangleDrawerForwardOpaque"
             inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
             inputData.shadowMask = half4(1, 1, 1, 1);
             inputData.bakedGI = SampleSH(inputData.normalWS);
+            if (length(inputData.bakedGI) < 0.01)
+            {
+                inputData.bakedGI = unity_AmbientSky.rgb;
+            }
+            half3 reflectVector = reflect(-inputData.viewDirectionWS, inputData.normalWS);
+            half perceptualRoughness = PerceptualSmoothnessToPerceptualRoughness(surfaceData.smoothness);
+            inputData.bakedGI += GlossyEnvironmentReflection(reflectVector, perceptualRoughness, surfaceData.occlusion);
      
             half4 color = UniversalFragmentPBR(inputData, surfaceData);
             color.rgb = MixFog(color.rgb, inputData.fogCoord);

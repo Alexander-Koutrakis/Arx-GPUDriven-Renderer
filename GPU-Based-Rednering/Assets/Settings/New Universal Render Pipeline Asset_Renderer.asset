@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d46006d8268b12141822984964e80c1c, type: 3}
   m_Name: CustomRendererFeature
   m_EditorClassIdentifier: 
-  m_Active: 0
+  m_Active: 1
   modelData: {fileID: 11400000, guid: 711adb44e7a011c4cb3e445a005efe63, type: 2}
   cullingSettings:
     cullingComputeShader: {fileID: 7200000, guid: b62c6a7db7f49c64aa701d3d530fe71d, type: 3}
@@ -51,8 +51,8 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 0}
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
-  - {fileID: -3701918607547399624}
-  m_RendererFeatureMap: 3882bad9a324a0cc
+  - {fileID: 4727174033424725909}
+  m_RendererFeatureMap: 9537bbddbc4b9a41
   m_UseNativeRenderPass: 0
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -73,8 +73,34 @@ MonoBehaviour:
   m_ShadowTransparentReceive: 1
   m_RenderingMode: 2
   m_DepthPrimingMode: 0
-  m_CopyDepthMode: 1
+  m_CopyDepthMode: 0
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 1
+--- !u!114 &4727174033424725909
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d681b5117b7c5ff48922e71bb6d2f25b, type: 3}
+  m_Name: GPURendererFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  modelData: {fileID: 11400000, guid: 711adb44e7a011c4cb3e445a005efe63, type: 2}
+  cullingSettings:
+    cullingComputeShader: {fileID: 7200000, guid: b62c6a7db7f49c64aa701d3d530fe71d, type: 3}
+    renderPassEvent: 250
+  opaqueDrawingSettings:
+    renderMaterial: {fileID: 2100000, guid: af33b1bfa618c124abe3b1452afa815c, type: 2}
+    renderPassEvent: 300
+  trasnparentDrawingSettings:
+    renderMaterial: {fileID: 2100000, guid: ab9c1042c97118b42866908a97717f8c, type: 2}
+    renderPassEvent: 300
+  copyDepthSettings:
+    depthPassEvent: 300
+    depthCopyTextureName: _PreviousFrameDepthTexture
