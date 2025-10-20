@@ -14,7 +14,7 @@ Editor
 
 ![arx-editor2](https://github.com/user-attachments/assets/001cd74d-5989-44c0-98a8-6fc639d19b2d)
 
-##Key points
+## Key points
 
 ### Data sourcing and reconstruction:
   - Static geometry in Arx appears to be stored as spatial cells referencing vertex indices and textures. This project reconstructs that data into a `ModelData` ScriptableObject.
@@ -29,7 +29,7 @@ Editor
     4) `CopyDepthPass`: Copies this frame’s depth and generates mipmaps to build a Hi-Z pyramid for the next frame’s occlusion.
   - Rationale: Culling with the previous frame’s depth avoids CPU-GPU sync and heavy CPU-side visibility work.
 
-### Shaders and compute
+### Shaders and compute:
   - Compute: `TriangleCulling.compute` (cell culling + append visible triangle lists), `DepthCopy.compute` (copy + hole fill for zero depth), `DepthMipGen.compute` (min-reduction mip chain for Hi-Z).
   - Forward shaders: `TriangleDrawerForwardOpaque.shader`, `TriangleDrawerForwardTransparent.shader` consume structured buffers (`_VertexBuffer`, `_TriangleBuffer`, `_MaterialBuffer`, `_VisibleTrianglesBuffer`) and sample from up to six 2D texture arrays (`_TexArray0`…`_TexArray5`).
 
@@ -80,7 +80,7 @@ Editor
    - `trasnparentDrawingSettings.renderMaterial`: `Resources/Shaders/TriangleDrawerForwardTransparent`.
 4) Press Play. Use WASD to move and Arrow Keys to look (`Scripts/CameraController.cs`).
 
-## Folder highlights
+### Folder highlights
 
 - `Assets/Scripts/Rendering/`
   - `GPURendererFeature.cs`: owns buffers/texture arrays and enqueues passes.
@@ -94,12 +94,12 @@ Editor
   - `ModelData.cs`, `RenderingData.cs` (vertex/triangle/material/cell layout)
   - `Grid.cs` (builds cell structure and triangle index list)
 
-## Future work
+### Future work
 - Emission: support emission per material (texture + HDR color multiplier).
 - Shadowing: add a procedural shadow caster path or screen-space shadowing (SSS/SSCS).
 
 
-## Credits and legal
+### Credits and legal
 
 - Data conversion: arx-convert by Lajos Mészáros (`https://github.com/arx-tools/arx-convert`).
 - Arx Fatalis is a game by Arkane Studios. Any extracted assets remain the property of their respective owners. If you intend to publish this repository publicly, ensure you have the right to distribute included assets. Consider providing an extraction script and instructions instead of bundling game data.
