@@ -7,9 +7,11 @@ Overview
 This repository contains a Unity URP prototype that reconstructs and renders static level geometry from Arx Fatalis (2001) using a GPU-driven pipeline. Geometry is organized into spatial cells and rendered with DrawProceduralIndirect; culling is performed entirely on the GPU using frustum tests and a hierarchical Z-buffer (Hi-Z) built from the previous frame’s depth.
 
 Player View
+
 ![arx-player2](https://github.com/user-attachments/assets/28d7475e-255b-4f5a-a03b-c0d90af7cf9c)
 
 Editor
+
 ![arx-editor2](https://github.com/user-attachments/assets/001cd74d-5989-44c0-98a8-6fc639d19b2d)
 
 Key points
