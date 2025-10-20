@@ -36,13 +36,13 @@ Editor
 
 ## How it works
 
-1) Data layout (`ModelData`):
+### Data layout (`ModelData`):
    - Positions, normals, tangents, UVs in `Vertices`.
    - `Triangles` reference vertex indices and a material index.
    - `Materials` reference into grouped Texture2DArrays (albedo and normal), plus PBR parameters (metallic, smoothness, color) and alpha clip controls.
    - A 3D grid (`Grid`) partitions the world AABB into cells; each populated cell stores a range into a flat triangle-index list.
 
-2) Runtime pipeline:
+### Runtime pipeline:
    - On `GPURendererFeature.Create()`, compute buffers and texture arrays are created from `ModelData`. A depth RTHandle is set up for `_PreviousFrameDepthTexture` with mipmaps.
    - Per-frame:
      - Culling pass (skip first frame):
