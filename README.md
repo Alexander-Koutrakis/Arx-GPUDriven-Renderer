@@ -1,4 +1,4 @@
-# GPU-Based Rendering
+# Arx GPUDriven Renderer
 
 GPU-Driven Rendering of Arx Fatalis Level Geometry (Unity URP)
 
