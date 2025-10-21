@@ -67,6 +67,26 @@ Details:
      - Transparent render pass: same draw path with alpha blending.
      - Depth copy pass: Copy current active depth to `_PreviousFrameDepthTexture` (hole-fill), then generate mips (min reduction) for next frame.
 
+## Performance snapshot (RenderDoc)
+
+Recorded at 1080p on an NVIDIA GeForce RTX 3070 Laptop GPU.
+
+| Metric | Value |
+|:--|:--|
+| **File size** | 609.46 MB (822.95 MB uncompressed, compression ratio ≈ 1.35 : 1) |
+| **Persistent Data** | ~20.87 MB |
+| **Frame-initial Data** | ~801.86 MB |
+| **Draw calls** | 35 |
+| **Dispatch calls** | 12 |
+| **Total API calls** | 560 |
+| **Draw / Dispatch ratio** | 11.91 : 1 |
+| **Textures** | 31 (391.75 MB total, avg. 318×318 px / 541×634 over 32×32) |
+| **Render Targets (RTs)** | 9 – 73.95 MB |
+| **Buffers** | 605 – 390.65 MB total (0.13 MB IBs, 0.13 MB VBs) |
+| **Total GPU buffer + texture load** | **≈ 856.35 MB** |
+
+<sub>Captured using RenderDoc. Represents typical per-frame resource usage under the GPU-driven rendering pipeline.</sub>
+
 ## Limitations/Obstacles:
 - No real-time light shadows: procedurally drawn triangles don’t run a ShadowCaster pass, so lights don’t cast shadows on them.
 - No emissive materials: emission textures/HDR color are not yet supported.
@@ -75,6 +95,30 @@ Details:
 - Dataset quirks: some vertices are erroneous per arx-convert; several were fixed in Blender, others may remain.
 - Transparency ordering: transparent geometry isn’t depth-sorted; order-dependent artifacts may appear.
 - Texture array budget: up to six Texture2DArrays are bound; adding more requires extending shader and feature bindings.
+
+## Comparison and evaluation
+
+A direct performance comparison against Unity’s built-in (CPU-driven) rendering pipeline is not included.  
+This is primarily because the source geometry is represented as a **single unified scene dataset**, not as individual `GameObject` hierarchies with `MeshRenderer` components.  
+
+In traditional Unity rendering:
+- Each object (mesh renderer) incurs **CPU-side culling, batching, and draw call management**.
+- Visibility and material binding are resolved per object, which introduces CPU overhead but allows per-object culling.
+
+In this GPU-driven prototype:
+- The **entire level’s static geometry** is stored as one large data structure and rendered procedurally via `DrawProceduralIndirect`.
+- Geometry is subdivided only into **spatial cells** for GPU culling, with no per-object representation on the CPU.
+- This makes a one-to-one comparison with standard GameObject/MeshRenderer rendering impractical.
+
+For testing purposes, an alternative setup was tried:
+- Triangles were grouped by material, and one mesh was built per material to simulate a traditional approach.
+- However, this led to **very large per-material meshes** (e.g., ~12,000 triangles for a single cave section), where only a small subset of the geometry was visible per frame.
+- As a result, the GPU still processed most triangles unnecessarily, and the approach did **not reflect a realistic performance baseline**.
+
+In summary:
+- The current pipeline focuses on **fully GPU-driven visibility and draw submission**.
+- A meaningful comparison would require reconstructing the level as **many smaller meshes** (per cell or per object) and profiling Unity’s CPU-driven culling and batching against the GPU approach—an effort outside the scope of this prototype.
+
 
 ## Setup and usage
 
