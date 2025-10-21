@@ -33,6 +33,20 @@ Editor
   - Compute: `TriangleCulling.compute` (cell culling + append visible triangle lists), `DepthCopy.compute` (copy + hole fill for zero depth), `DepthMipGen.compute` (min-reduction mip chain for Hi-Z).
   - Forward shaders: `TriangleDrawerForwardOpaque.shader`, `TriangleDrawerForwardTransparent.shader` consume structured buffers (`_VertexBuffer`, `_TriangleBuffer`, `_MaterialBuffer`, `_VisibleTrianglesBuffer`) and sample from up to six 2D texture arrays (`_TexArray0`…`_TexArray5`).
 
+### Occlusion Culling (Hi‑Z)
+
+- Uses a previous‑frame depth pyramid (min‑reduction mip chain) to occlude whole cells (AABBs).
+- For each cell, estimates screen‑space footprint to choose a mip; compares AABB depth vs Hi‑Z to reject occluded cells.
+- Entirely GPU‑driven: culling in `Resources/Shaders/TriangleCulling.compute`; depth copy + mip chain in `Resources/Shaders/DepthCopy.compute` and `Resources/Shaders/DepthMipGen.compute`; scheduled by `Scripts/Rendering/CullingPass.cs` and `GPURendererFeature.cs`.
+- Result: reduced work from <X k> → <Y k> triangles, ~<Z ms> → ~<W ms> on <GPU>.
+
+Details:
+- Mip selection: use the cell’s screen‑space AABB size; larger on‑screen → coarser mip.
+- Hi‑Z sampling: sample a 4×4 block at that mip and take the min to stay conservative against cracks and temporal changes.
+- Test: compare the cell’s near depth vs the sampled Hi‑Z with a small positive bias to avoid false occlusion.
+
+![depth_mip3-AABB-Test](https://github.com/user-attachments/assets/75833508-8f7f-4e10-a949-eec929d90981)
+<sub>Previous‑frame Hi‑Z depth pyramid, mip 3. Green box = 4×4 conservative sample for the cell’s occlusion test; mip chosen from screen‑space footprint.</sub>
 
 ## How it works
 
