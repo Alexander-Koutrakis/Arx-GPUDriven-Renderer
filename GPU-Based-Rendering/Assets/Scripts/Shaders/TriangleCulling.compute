@@ -14,7 +14,6 @@ StructuredBuffer<uint> _TriangleIndexBuffer;
 AppendStructuredBuffer<uint> _OpaqueVisibleTrianglesBuffer;
 AppendStructuredBuffer<uint> _TransparentVisibleTrianglesBuffer;
 
-// Hi-Z occlusion culling resources
 Texture2D<float> _OcclusionDepthTexture;
 SamplerState sampler_OcclusionDepthTexture;
 

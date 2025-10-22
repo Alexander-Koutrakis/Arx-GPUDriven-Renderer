@@ -2,17 +2,40 @@
 
 GPU-Driven Rendering of Arx Fatalis Level Geometry (Unity URP)
 
+## TL;DR
+
+- Problem: The Arx Fatalis dataset is a single, unified level, not a scene of discrete `GameObject`/`MeshRenderer` objects. That makes CPU-side per-object culling and draw submission a poor fit.
+- Solution: A fully GPU-driven pipeline: subdivide the level into spatial cells, perform frustum + Hi‑Z occlusion culling on the GPU, and draw visible triangles via `DrawProceduralIndirect`.
+- Why this matters: Avoids CPU–GPU synchronization and makes apples-to-apples comparison with a traditional CPU-driven pipeline inappropriate. See [Comparison and evaluation](#comparison-and-evaluation) for details.
+
+## Context: Arx level geometry vs traditional rendering
+
+### How the original Arx level geometry is stored
+
+- The source `FastSceneLoad` (`.fts`) describes the level as spatial cells with contiguous triangle ranges that reference shared vertex attributes and texture indices.
+- Cells are data groupings, not engine objects: triangles are interleaved across materials; there is no stable per-object hierarchy or per-mesh pivot/transforms.
+- After conversion, you effectively get one large, unified dataset (flat vertex arrays + triangle list + material table), not N independent meshes you can cull individually on the CPU.
+
+### How traditional (CPU-driven) rendering works
+
+- Engines assume a scene graph of discrete objects (meshes).
+- Each frame, the CPU performs frustum/occlusion culling per object, sorts by material/state, binds vertex/index buffers and materials, then submits draw calls per object.
+- This model relies on object granularity to skip off-screen work cheaply and keep draw submission manageable.
+
+### Why that model doesn’t fit this dataset
+
+- There aren’t natural object boundaries to cull; treating the whole level as one mesh forces the GPU to touch many triangles even when most are hidden.
+- Post-hoc splitting into many small meshes is non-trivial (segmentation, deduplication, per-mesh bounds/transforms) and can explode draw-call count.
+- A naïve "one mesh per material" workaround yields very large meshes that still include mostly invisible triangles, defeating CPU-side culling.
+- Therefore this project moves visibility to the GPU: partition space into cells, do frustum + Hi‑Z occlusion culling in compute, and draw visible triangles with `DrawProceduralIndirect`.
+
 ## Overview
 
 This repository contains a Unity URP prototype that reconstructs and renders static level geometry from Arx Fatalis (2001) using a GPU-driven pipeline. Geometry is organized into spatial cells and rendered with DrawProceduralIndirect; culling is performed entirely on the GPU using frustum tests and a hierarchical Z-buffer (Hi-Z) built from the previous frame’s depth.
 
-Player View
-
-![arx-player2](https://github.com/user-attachments/assets/28d7475e-255b-4f5a-a03b-c0d90af7cf9c)
-
-Editor
-
-![arx-editor2](https://github.com/user-attachments/assets/001cd74d-5989-44c0-98a8-6fc639d19b2d)
+| Player View | Editor | 
+|--------------|---------|
+| ![arx-player2](https://github.com/user-attachments/assets/28d7475e-255b-4f5a-a03b-c0d90af7cf9c) | ![arx-editor2](https://github.com/user-attachments/assets/001cd74d-5989-44c0-98a8-6fc639d19b2d) |
 
 ## Key points
 

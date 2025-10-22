@@ -31,6 +31,8 @@ namespace Rendering
         public class CopyDepthPassSettings
         {
             public RenderPassEvent depthPassEvent = RenderPassEvent.AfterRenderingOpaques;
+            public ComputeShader DepthCopyShader;
+            public ComputeShader MipMapGenerationShader;
             [HideInInspector]public string depthCopyTextureName = "_PreviousFrameDepthTexture";
         }
 

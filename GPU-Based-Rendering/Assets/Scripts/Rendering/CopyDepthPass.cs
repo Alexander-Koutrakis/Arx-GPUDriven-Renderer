@@ -20,14 +20,14 @@ namespace Rendering
             m_Settings = settings;
             
             // Load the depth copy compute shader
-            depthCopyComputeShader = Resources.Load<ComputeShader>("Shaders/DepthCopy");
+            depthCopyComputeShader = m_Settings.DepthCopyShader;
             if (depthCopyComputeShader == null)
             {
                 Debug.LogError("CopyDepthPass: Could not find DepthCopy compute shader in Resources/Shaders/");
             }
             
             // Load the depth mipmap generation compute shader
-            depthMipGenComputeShader = Resources.Load<ComputeShader>("Shaders/DepthMipGen");
+            depthMipGenComputeShader = m_Settings.MipMapGenerationShader;
             if (depthMipGenComputeShader == null)
             {
                 Debug.LogError("CopyDepthPass: Could not find DepthMipGen compute shader in Resources/Shaders/");
