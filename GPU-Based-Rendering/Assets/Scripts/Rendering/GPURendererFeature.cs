@@ -303,6 +303,7 @@ namespace Rendering
             if (copyDepthTextureHandle != null)
             {
                 Debug.Log($"RTHandle created successfully: {copyDepthTextureHandle.name}");
+                cullingPass.SetDepthTexture(copyDepthTextureHandle);
                 copyDepthPass.Setup(copyDepthTextureHandle);
             }
             else

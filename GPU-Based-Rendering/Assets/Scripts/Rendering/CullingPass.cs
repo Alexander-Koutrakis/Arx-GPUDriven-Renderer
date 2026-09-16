@@ -47,6 +47,14 @@ namespace Rendering
             isFirstFrame = true;
         }
 
+        public void SetDepthTexture(RTHandle depthTextureHandle)
+        {
+            if (!ReferenceEquals(depthTexture, depthTextureHandle))
+                isFirstFrame = true;
+
+            depthTexture = depthTextureHandle;
+        }
+
         public void UpdateModelData(ModelData newModelData)
         {
             modelData = newModelData;
