@@ -128,6 +128,7 @@ namespace Rendering
             };
 
             cullingPass = new CullingPass();
+            cullingPass.renderPassEvent = cullingSettings.renderPassEvent;
             cullingPass.SetupRenderPass(modelData, cullingSettings, computeBuffers, copyDepthTextureHandle);
         }
         private void CreateOpaqueDrawingPass(RenderingPass renderPass,CustomRendererSettings settings)
@@ -159,6 +160,7 @@ namespace Rendering
                 unityTextureArray5
             };
 
+            renderPass.renderPassEvent = settings.renderPassEvent;
             renderPass.SetupRenderPass(modelData,settings, computeBuffers, bufferIDs, texture2DArrays);
         }
         private void CreateTransparentDrawingPass(RenderingPass renderPass, CustomRendererSettings settings)
@@ -190,6 +192,7 @@ namespace Rendering
                 unityTextureArray5
             };
 
+            renderPass.renderPassEvent = settings.renderPassEvent;
             renderPass.SetupRenderPass(modelData, settings, computeBuffers, bufferIDs, texture2DArrays);
         }
 
@@ -242,45 +245,17 @@ namespace Rendering
                 InitializeBuffers(maxVertexCount, maxTriangleCount, maxMaterialCount, maxtriangleIndexCount, maxCellCount);
                 UpdateBuffers(modelData);
                 SetupTextureArrays();
-                CreateDepthCopyRTHandle();
             }
 
            
         }
 
-        private void CreateDepthCopyRTHandle()
-        {
-
-            var descriptor = new RenderTextureDescriptor(1920, 1080, RenderTextureFormat.RFloat, 0)
-            {
-                msaaSamples = 1,
-                dimension = TextureDimension.Tex2D,
-                useMipMap = true,
-                autoGenerateMips = false,
-                enableRandomWrite = true  // Enable UAV usage for compute shader
-            };
-
-            copyDepthTextureHandle = RTHandles.Alloc(descriptor,
-                name: copyDepthSettings.depthCopyTextureName);
-
-            if (copyDepthTextureHandle != null)
-            {
-                var renderTexture = copyDepthTextureHandle.rt;
-                renderTexture.wrapMode = TextureWrapMode.Clamp;
-                
-                copyDepthPass.Setup(copyDepthTextureHandle);
-            }
-        }
-
-
         public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
         {
-            Debug.Log("SetupRenderPasses called");
             // Ensure we have a depth copy texture with the right dimensions
             var cameraData = renderingData.cameraData;
             var descriptor = cameraData.cameraTargetDescriptor;
 
-            Debug.Log($"Original descriptor: {descriptor.width}x{descriptor.height}, format: {descriptor.colorFormat}");
             // Create descriptor for depth texture copy
             descriptor.colorFormat = RenderTextureFormat.RFloat; // Single channel float for depth
             descriptor.depthBufferBits = 0; // No depth buffer needed for the copy
@@ -290,18 +265,11 @@ namespace Rendering
             descriptor.autoGenerateMips = false; // We generate mipmaps manually
            
 
-            Debug.Log($"Modified descriptor: {descriptor.width}x{descriptor.height}, format: {descriptor.colorFormat}");
-            Debug.Log($"copyDepthTextureHandle before realloc: {(copyDepthTextureHandle?.rt != null ? "Valid" : "Null")}");
-
-
             RenderingUtils.ReAllocateHandleIfNeeded(ref copyDepthTextureHandle, descriptor,
                 FilterMode.Point, TextureWrapMode.Clamp, name: copyDepthSettings.depthCopyTextureName);
 
-            Debug.Log($"copyDepthTextureHandle after realloc: {(copyDepthTextureHandle?.rt != null ? "Valid" : "Null")}");
-
             if (copyDepthTextureHandle != null)
             {
-                Debug.Log($"RTHandle created successfully: {copyDepthTextureHandle.name}");
                 cullingPass.SetDepthTexture(copyDepthTextureHandle);
                 copyDepthPass.Setup(copyDepthTextureHandle);
             }
