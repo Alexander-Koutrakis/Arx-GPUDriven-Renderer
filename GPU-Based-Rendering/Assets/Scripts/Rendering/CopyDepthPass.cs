@@ -44,11 +44,6 @@ namespace Rendering
             if (depthCopyTexture == null || depthCopyComputeShader == null || depthMipGenComputeShader == null)
                 return;
 
-            // Skip Scene view cameras - only copy depth for Game cameras
-            var cameraData = frameData.Get<UniversalCameraData>();
-            if (cameraData.camera.cameraType != CameraType.Game)
-                return;
-
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
 
             using (var builder = renderGraph.AddComputePass<DepthCopyPassData>("Depth Copy Pass", out var passData))

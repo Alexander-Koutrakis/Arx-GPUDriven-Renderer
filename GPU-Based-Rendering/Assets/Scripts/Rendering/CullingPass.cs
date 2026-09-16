@@ -74,11 +74,7 @@ namespace Rendering
             
             // Get camera data from the frame data
             var cameraData = frameData.Get<UniversalCameraData>();
-            
-            // Skip Scene view cameras - only perform culling for Game cameras
-            if (cameraData.camera.cameraType != CameraType.Game)
-                return;
-            
+
             // Enhanced validation
             if (modelData == null|| modelData.Cells == null || modelData.Cells.Length == 0||
                 cullingComputeShader == null|| opaqueVisibleTrianglesBuffer == null || opaqueDrawArgsBuffer == null)

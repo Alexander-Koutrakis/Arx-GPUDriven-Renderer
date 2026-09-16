@@ -198,10 +198,23 @@ namespace Rendering
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            renderer.EnqueuePass(cullingPass);
+            Camera camera = renderingData.cameraData.camera;
+            if (camera == null || (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView))
+                return;
+
+            bool isGameCamera = camera.cameraType == CameraType.Game;
+            if (isGameCamera)
+            {
+                EnsureDepthTexture(renderingData.cameraData.cameraTargetDescriptor);
+                renderer.EnqueuePass(cullingPass);
+            }
+
+            // ponytail: Scene view intentionally reuses Game-camera visibility; use per-camera buffers for independent culling.
             renderer.EnqueuePass(opaqueRenderPass);
             renderer.EnqueuePass(transparentRenderPass);
-            renderer.EnqueuePass(copyDepthPass);
+
+            if (isGameCamera)
+                renderer.EnqueuePass(copyDepthPass);
         }
 
         protected override void Dispose(bool disposing)
@@ -250,12 +263,8 @@ namespace Rendering
            
         }
 
-        public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
+        private void EnsureDepthTexture(RenderTextureDescriptor descriptor)
         {
-            // Ensure we have a depth copy texture with the right dimensions
-            var cameraData = renderingData.cameraData;
-            var descriptor = cameraData.cameraTargetDescriptor;
-
             // Create descriptor for depth texture copy
             descriptor.colorFormat = RenderTextureFormat.RFloat; // Single channel float for depth
             descriptor.depthBufferBits = 0; // No depth buffer needed for the copy
