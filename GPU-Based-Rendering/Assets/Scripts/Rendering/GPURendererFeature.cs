@@ -257,8 +257,7 @@ namespace Rendering
                 dimension = TextureDimension.Tex2D,
                 useMipMap = true,
                 autoGenerateMips = false,
-                enableRandomWrite = true,  // Enable UAV usage for compute shader
-                mipCount = 8 // Set the mip count from settings
+                enableRandomWrite = true  // Enable UAV usage for compute shader
             };
 
             copyDepthTextureHandle = RTHandles.Alloc(descriptor,

@@ -104,6 +104,7 @@ namespace Rendering
                 if (depthTexture != null && depthTexture.rt != null)
                 {
                     cullingPassData.depthTexture = renderGraph.ImportTexture(depthTexture);
+                    cullingPassData.maxMipLevel = depthTexture.rt.mipmapCount - 1;
                     builder.UseTexture(cullingPassData.depthTexture, AccessFlags.Read);
                 }
                 else
@@ -135,6 +136,7 @@ namespace Rendering
             public ComputeBuffer transparentDrawArgsBuffer;
             public Camera camera;
             public TextureHandle depthTexture;
+            public int maxMipLevel;
         }
 
         private void ExecuteCullingPass(CullingPassData data, ComputeGraphContext context)
@@ -168,7 +170,6 @@ namespace Rendering
 
                     float width = data.camera.pixelWidth;
                     float height = data.camera.pixelHeight;
-                    int maxMipLevel=Mathf.FloorToInt(Mathf.Log(Mathf.Max(width, height), 2)) + 1;
                     // Set camera parameters
                     if (data.camera != null)
                     {
@@ -194,7 +195,7 @@ namespace Rendering
                                                 
                         
                         cmd.SetComputeVectorParam(data.cullingComputeShader, "_ScreenParams", 
-                            new Vector4(width, height, maxMipLevel, 0));
+                            new Vector4(width, height, data.maxMipLevel, 0));
                     }
                     else
                     {

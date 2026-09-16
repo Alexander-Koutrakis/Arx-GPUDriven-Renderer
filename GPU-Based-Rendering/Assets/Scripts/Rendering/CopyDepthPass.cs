@@ -57,6 +57,7 @@ namespace Rendering
                 passData.depthCopyTexture = renderGraph.ImportTexture(depthCopyTexture);
                 passData.depthCopyComputeShader = depthCopyComputeShader;
                 passData.depthMipGenComputeShader = depthMipGenComputeShader;
+                passData.mipCount = depthCopyTexture.rt.mipmapCount;
 
                 builder.UseTexture(passData.sourceDepthTexture, AccessFlags.Read);
                 builder.UseTexture(passData.depthCopyTexture, AccessFlags.ReadWrite);
@@ -86,14 +87,11 @@ namespace Rendering
                     // Generate mipmaps using the mipmap generation shader
                     int mipGenKernelIndex = data.depthMipGenComputeShader.FindKernel("CSMain");
                     
-                    // Calculate the actual number of mips to generate (limited by texture size and settings)
-                    int maxMips = Mathf.FloorToInt(Mathf.Log(Mathf.Max(width, height), 2)) + 1;
-                    
                     // Generate each mip level
                     int currentWidth = width;
                     int currentHeight = height;
 
-                    for (int mip = 1; mip < maxMips; mip++)
+                    for (int mip = 1; mip < data.mipCount; mip++)
                     {
                         int sourceMip = mip - 1;
                         int destMip = mip;
