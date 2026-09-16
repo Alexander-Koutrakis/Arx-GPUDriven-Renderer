@@ -27,6 +27,8 @@ namespace Rendering
         private string profilerTag = "Custom Culling Pass";
 
         private bool isFirstFrame = true;
+        private readonly Plane[] frustumPlanes = new Plane[6];
+        private readonly Vector4[] frustumPlaneData = new Vector4[6];
 
         public void SetupRenderPass(ModelData modelData,
             GPURendererFeature.CustomCullingSettings settings,
@@ -174,14 +176,13 @@ namespace Rendering
                     if (data.camera != null)
                     {
                         // Frustum planes
-                        Plane[] planes = GeometryUtility.CalculateFrustumPlanes(data.camera);
-                        Vector4[] planeData = new Vector4[6];
+                        GeometryUtility.CalculateFrustumPlanes(data.camera, frustumPlanes);
                         for (int i = 0; i < 6; i++)
                         {
-                            Plane p = planes[i];
-                            planeData[i] = new Vector4(p.normal.x, p.normal.y, p.normal.z, p.distance);
+                            Plane p = frustumPlanes[i];
+                            frustumPlaneData[i] = new Vector4(p.normal.x, p.normal.y, p.normal.z, p.distance);
                         }
-                        cmd.SetComputeVectorArrayParam(data.cullingComputeShader, "_FrustumPlanes", planeData);
+                        cmd.SetComputeVectorArrayParam(data.cullingComputeShader, "_FrustumPlanes", frustumPlaneData);
 
                         // Camera matrices for occlusion culling
                         Matrix4x4 viewMatrix = data.camera.worldToCameraMatrix;
